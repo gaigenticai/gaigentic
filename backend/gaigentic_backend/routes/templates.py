@@ -15,6 +15,7 @@ from ..models.agent import Agent
 from ..schemas.template import TemplateCreate, TemplateOut
 from ..schemas.chat import WorkflowDraft
 from ..services.flow_validator import validate_workflow
+from ..config import settings
 from ..dependencies.auth import get_current_tenant_id, require_role
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,11 @@ async def clone_template(
     agent = Agent(
         tenant_id=tenant_id,
         name=template.name,
-        config={"workflow": draft_dict, "system_prompt": template.system_prompt},
+        config={
+            "workflow": draft_dict,
+            "system_prompt": template.system_prompt,
+            "llm": {"provider": settings.llm_provider, "model": settings.llm_model},
+        },
     )
     session.add(agent)
     try:

@@ -7,6 +7,8 @@ from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, validator
 
+from .llm import LLMModelConfig
+
 
 class Position(BaseModel):
     """Node position on canvas."""
@@ -75,6 +77,7 @@ class ChatRequest(BaseModel):
     """Chat request payload."""
 
     messages: List[ChatMessage]
+    llm: LLMModelConfig | None = None
 
 
 class ChatResponse(BaseModel):
