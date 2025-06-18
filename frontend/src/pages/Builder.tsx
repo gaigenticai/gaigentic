@@ -15,6 +15,7 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import ToolPalette from '../components/ToolPalette'
+import { getToken } from '../utils/auth'
 
 interface DraftNode {
   id: string
@@ -155,21 +156,24 @@ export default function Builder() {
     }
     await fetch(`/api/v1/agents/${agentId}/workflow`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
       body: JSON.stringify(draft),
     })
   }
 
   const deployAgent = async () => {
     if (!agentId) return
-    await fetch(`/api/v1/agents/${agentId}/deploy`, { method: 'POST' })
+    await fetch(`/api/v1/agents/${agentId}/deploy`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
   }
 
   const runLive = () => {
     if (!agentId) return
     setRunEvents([])
     setRunning(true)
-    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/agents/${agentId}/run?tenant_id=00000000-0000-0000-0000-000000000001`)
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/agents/${agentId}/run?tenant_id=00000000-0000-0000-0000-000000000001&token=${getToken() ?? ''}`)
     ws.onmessage = (ev) => {
       const data = JSON.parse(ev.data)
       if (data.status === 'started') return

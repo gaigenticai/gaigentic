@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import async_session
 from ..models.transaction import Transaction
 from ..services.file_parser import parse_file
-from ..services.tenant_context import get_current_tenant_id
+from ..dependencies.auth import get_current_tenant_id, require_role
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ async def ingest_transactions(
     file: UploadFile = File(...),
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user"})),
 ) -> dict:
     """Upload a CSV or XLSX file and store transactions."""
 

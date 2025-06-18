@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ..database import async_session
 from ..models.agent import Agent
 from ..schemas.agent import AgentCreate, AgentOut
-from ..services.tenant_context import get_current_tenant_id
+from ..dependencies.auth import get_current_tenant_id, require_role
 from ..services.tool_executor import execute_tool
 from ..services.flow_validator import validate_workflow
 from ..services.workflow_translator import translate_to_superagent
@@ -33,6 +33,7 @@ async def create_agent(
     payload: AgentCreate,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin"})),
 ) -> AgentOut:
     """Create a new agent tied to the current tenant."""
 
@@ -53,10 +54,12 @@ async def execute_agent_tool(
     agent_id: UUID,
     tool_name: str,
     input_data: dict,
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user"})),
 ) -> dict:
     """Execute a tool for the given agent."""
 
-    return await execute_tool(agent_id, tool_name, input_data)
+    return await execute_tool(agent_id, tool_name, input_data, tenant_id)
 
 
 @router.post("/{agent_id}/workflow")
@@ -65,6 +68,7 @@ async def save_workflow(
     draft: WorkflowDraft,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user"})),
 ) -> dict:
     """Validate and store a workflow for the agent."""
 
@@ -97,6 +101,7 @@ async def deploy_agent(
     agent_id: UUID,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin"})),
 ) -> dict:
     """Deploy the agent using its saved workflow."""
 
@@ -137,6 +142,7 @@ async def execute_workflow(
     input_context: dict,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user"})),
 ) -> dict:
     """Execute the stored workflow for the agent and return step results."""
 
@@ -144,7 +150,7 @@ async def execute_workflow(
     if agent is None or agent.tenant_id != tenant_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
-    return await run_logged_workflow(agent_id, input_context)
+    return await run_logged_workflow(agent_id, input_context, tenant_id)
 
 
 @router.websocket("/ws/agents/{agent_id}/run")
@@ -169,7 +175,7 @@ async def websocket_run_agent(
 
     await websocket.send_json({"status": "started"})
     try:
-        async for step in run_workflow_stream(agent_id, {}):
+        async for step in run_workflow_stream(agent_id, {}, tenant_id):
             logger.info("%snode %s complete", log_prefix, step["node_id"])
             await websocket.send_json(step)
         await websocket.send_json({"status": "complete"})

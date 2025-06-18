@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { getToken } from '../utils/auth'
 
 interface RunLog {
   started_at: string
@@ -24,7 +25,9 @@ export default function Monitor() {
 
   useEffect(() => {
     if (agentId) {
-      fetch(`/api/v1/agents/${agentId}/runs`)
+      fetch(`/api/v1/agents/${agentId}/runs`, {
+        headers: { Authorization: `Bearer ${getToken()}` }
+      })
         .then((r) => r.json())
         .then(setRuns)
         .catch(() => {})
@@ -33,7 +36,9 @@ export default function Monitor() {
 
   useEffect(() => {
     const tenantId = '00000000-0000-0000-0000-000000000001'
-    fetch(`/api/v1/tenants/${tenantId}/stats`)
+    fetch(`/api/v1/tenants/${tenantId}/stats`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    })
       .then((r) => r.json())
       .then(setStats)
       .catch(() => {})

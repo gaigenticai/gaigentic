@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { getToken } from '../utils/auth'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -30,7 +31,7 @@ export default function Chat() {
     setStreamingText('')
     setTyping(true)
     let full = ''
-    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/chat`)
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/chat?token=${getToken() ?? ''}`)
     ws.onopen = () => {
       ws.send(JSON.stringify({ messages: history }))
     }

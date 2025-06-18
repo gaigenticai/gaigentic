@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
     llm_provider: str = Field("openai", alias="LLM_PROVIDER")
     llm_model: str = Field("gpt-3.5-turbo", alias="LLM_MODEL")
+    jwt_secret_key: str = Field(..., alias="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field("HS256", alias="JWT_ALGORITHM")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
