@@ -17,6 +17,7 @@ from ..models.chat_session import ChatSession
 from ..schemas.chat import ChatRequest, ChatResponse
 from ..services.flow_validator import validate_workflow
 from ..services.llm_chat import ChatSME
+from ..services.memory_adapter import store_message
 from ..dependencies.auth import get_current_tenant_id, require_role
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,7 @@ _RATE_LIMIT: dict[str, deque[float]] = {}
 @router.post("/api/v1/chat", response_model=ChatResponse)
 async def chat_endpoint(
     payload: ChatRequest,
+    agent_id: UUID | None = None,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
     _user=Depends(require_role({"admin", "user"})),
@@ -69,6 +71,13 @@ async def chat_endpoint(
         logger.exception("Failed to store chat session: %s", exc)
         await session.rollback()
 
+    if agent_id:
+        try:
+            await store_message(agent_id, "user", payload.messages[-1].content)
+            await store_message(agent_id, "assistant", response.reply)
+        except Exception as exc:  # pragma: no cover - runtime failures
+            logger.exception("Failed to store message history: %s", exc)
+
     return response
 
 
@@ -76,6 +85,7 @@ async def chat_endpoint(
 async def chat_websocket(
     websocket: WebSocket,
     session_id: str | None = None,
+    agent_id: UUID | None = None,
 ) -> None:
     """Handle chat streaming over WebSocket."""
 
@@ -117,6 +127,12 @@ async def chat_websocket(
         if response.workflow_draft is not None:
             final["workflow_draft"] = response.workflow_draft.model_dump()
         await websocket.send_json(final)
+        if agent_id:
+            try:
+                await store_message(agent_id, "user", payload.messages[-1].content)
+                await store_message(agent_id, "assistant", response.reply)
+            except Exception as exc:  # pragma: no cover
+                logger.exception("Failed to store message history: %s", exc)
     except WebSocketDisconnect:
         logger.info("%sclient disconnected", log_prefix)
     except ValueError as exc:
