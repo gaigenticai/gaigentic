@@ -6,6 +6,7 @@ from .transaction import Transaction
 from .chat_session import ChatSession
 from .execution_log import ExecutionLog
 from .user import User
+from .template import Template
 
 __all__ = [
     "Tenant",
@@ -14,4 +15,5 @@ __all__ = [
     "ChatSession",
     "ExecutionLog",
     "User",
+    "Template",
 ]
