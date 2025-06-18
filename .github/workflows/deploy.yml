@@ -1,0 +1,24 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+      - name: Lint
+        run: python -m py_compile $(git ls-files '*.py')
+      - name: Build Docker image
+        run: docker-compose -f docker-compose.prod.yml build
+      - name: Deploy
+        if: github.ref == 'refs/heads/main'
+        run: echo "Deploying to production..."
