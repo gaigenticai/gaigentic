@@ -5,8 +5,12 @@ Superagent service and stores configuration in PostgreSQL.
 
 ## Local development
 
+Clone the Superagent service and start the stack:
+
 ```bash
+git clone https://github.com/superagent-ai/superagent.git superagent
 cp .env.development .env
+docker compose build superagent
 docker compose up -d
 ```
 
