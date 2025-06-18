@@ -4,7 +4,9 @@ services:
     build:
       # Fetch the Superagent service directly from GitHub so users don't need
       # to clone the repository locally.
-      context: https://github.com/superagent-ai/superagent.git#libs/superagent
+      # Pin to the main branch and specify the subdirectory containing the
+      # Dockerfile using the <ref>:<path> syntax.
+      context: https://github.com/superagent-ai/superagent.git#main:libs/superagent
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
