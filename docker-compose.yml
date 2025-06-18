@@ -45,6 +45,7 @@ services:
     image: postgres:15
     environment:
       POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: superagent
     volumes:
       - postgres_data:/var/lib/postgresql/data
   redis:
