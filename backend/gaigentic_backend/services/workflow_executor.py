@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, AsyncGenerator
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -49,8 +49,10 @@ def _topological_order(draft: WorkflowDraft) -> List[str]:
     return order
 
 
-async def run_workflow(agent_id: UUID, input_context: Dict[str, Any]) -> Dict[str, Any]:
-    """Execute the stored workflow for an agent."""
+async def run_workflow_stream(
+    agent_id: UUID, input_context: Dict[str, Any]
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """Yield workflow execution results step by step."""
 
     tenant_id = await get_current_tenant_id()
     agent = await _load_agent(agent_id, tenant_id)
@@ -94,5 +96,19 @@ async def run_workflow(agent_id: UUID, input_context: Dict[str, Any]) -> Dict[st
         output = await execute_tool(agent_id, node.type, step_input)
         logger.info("Output for node %s: %s", node_id, output)
         results[node_id] = output
+        yield {
+            "node_id": node_id,
+            "tool": node.type,
+            "output": output,
+            "status": "success",
+        }
+
+
+async def run_workflow(agent_id: UUID, input_context: Dict[str, Any]) -> Dict[str, Any]:
+    """Execute the stored workflow for an agent and return consolidated result."""
+
+    results: Dict[str, Any] = {}
+    async for step in run_workflow_stream(agent_id, input_context):
+        results[step["node_id"]] = step["output"]
 
     return {"steps": results, "status": "complete"}

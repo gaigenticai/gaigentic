@@ -5,7 +5,10 @@ import json
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import asyncio
+import time
+from collections import deque
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +22,8 @@ from ..services.tenant_context import get_current_tenant_id
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+_RATE_LIMIT: dict[str, deque[float]] = {}
 
 
 @router.post("/api/v1/chat", response_model=ChatResponse)
@@ -56,3 +61,61 @@ async def chat_endpoint(
         await session.rollback()
 
     return response
+
+
+@router.websocket("/ws/chat")
+async def chat_websocket(
+    websocket: WebSocket,
+    session_id: str | None = None,
+) -> None:
+    """Handle chat streaming over WebSocket."""
+
+    log_prefix = f"session {session_id} - " if session_id else ""
+    await websocket.accept()
+    ping_task = asyncio.create_task(_ping_loop(websocket))
+
+    try:
+        raw = await websocket.receive_text()
+        data = json.loads(raw)
+        payload = ChatRequest.model_validate(data)
+
+        client = websocket.client.host if websocket.client else "anon"
+        dq = _RATE_LIMIT.setdefault(client, deque())
+        now = time.time()
+        while dq and now - dq[0] > 60:
+            dq.popleft()
+        if len(dq) >= 2:
+            await websocket.close(code=4008, reason="rate limit")
+            ping_task.cancel()
+            return
+        dq.append(now)
+
+        llm = ChatSME()
+        response = await llm.chat(payload.messages)
+
+        reply = response.reply.split()
+        accumulated = ""
+        for token in reply:
+            accumulated += token + " "
+            await websocket.send_json({"token": token})
+        final = {"status": "complete"}
+        if response.workflow_draft is not None:
+            final["workflow_draft"] = response.workflow_draft.model_dump()
+        await websocket.send_json(final)
+    except WebSocketDisconnect:
+        logger.info("%sclient disconnected", log_prefix)
+    except Exception as exc:  # pragma: no cover - runtime errors
+        logger.exception("%swebsocket chat error: %s", log_prefix, exc)
+        await websocket.close(code=1011, reason="server error")
+    finally:
+        ping_task.cancel()
+
+
+async def _ping_loop(ws: WebSocket) -> None:
+    """Send periodic pings to keep the WebSocket alive."""
+    try:
+        while True:
+            await asyncio.sleep(15)
+            await ws.send_json({"type": "ping"})
+    except Exception:
+        pass
