@@ -9,7 +9,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
 
 from .database import engine
-from .routes import api_router
+from .routes import api_router, agents
 
 logger = logging.getLogger(__name__)
 
@@ -41,3 +41,4 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Gaigentic Backend", lifespan=lifespan)
 app.add_middleware(RequestIDMiddleware)
 app.include_router(api_router)
+app.include_router(agents.router, prefix="/api/v1/agents")
