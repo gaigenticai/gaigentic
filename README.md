@@ -5,9 +5,9 @@ Superagent service and stores configuration in PostgreSQL.
 
 ## Local development
 
-Start the stack by cloning the Superagent repository locally. The included
-`setup_superagent.sh` script will download the source if it is missing and then
-build the Docker images:
+Start the stack by cloning the Superagent repository locally. The
+`setup_superagent.sh` script will automatically clone the repository if it is
+missing and then build the Docker images:
 
 ```bash
 git clone https://github.com/superagent-ai/superagent.git external/superagent
