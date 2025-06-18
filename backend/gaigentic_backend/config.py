@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     cors_origins: str = Field("*", alias="CORS_ORIGINS")
     rate_limit_per_minute: int = Field(60, alias="RATE_LIMIT_PER_MINUTE")
     log_file: str | None = Field(None, alias="LOG_FILE")
+    memory_chat_k_default: int = Field(10, alias="MEMORY_CHAT_K_DEFAULT")
+    memory_semantic_k_default: int = Field(5, alias="MEMORY_SEMANTIC_K_DEFAULT")
 
     @field_validator("llm_providers_enabled", mode="before")
     @classmethod
