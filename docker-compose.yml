@@ -2,14 +2,19 @@ version: "3.8"
 services:
   superagent:
     build:
-      # Fetch the Superagent service directly from GitHub so users don't need
-      # to clone the repository locally.
-      # Pin to the main branch and specify the subdirectory containing the
-      # Dockerfile using the <ref>:<path> syntax.
-      context: https://github.com/superagent-ai/superagent.git#main:libs/superagent
-      dockerfile: Dockerfile
+      context: ./external/superagent/libs/superagent
+    container_name: gaigentic-superagent
     ports:
       - "8080:8080"
+    environment:
+      - ENV=production
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/superagent
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=debug
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+    depends_on:
+      - db
+      - redis
   backend:
     build: ./backend
     env_file:

@@ -5,3 +5,4 @@ __pycache__/
 frontend/dist/
 
 superagent/
+external/superagent/

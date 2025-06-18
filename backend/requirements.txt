@@ -15,3 +15,5 @@ PyMuPDF
 python-docx
 pgvector
 prometheus-client
+aiosqlite
+
