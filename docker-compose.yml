@@ -8,6 +8,7 @@ services:
       - "8080:8080"
     environment:
       - ENV=production
+      - SUPERAGENT_API_URL=http://localhost:8080
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/superagent
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=debug

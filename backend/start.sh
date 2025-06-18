@@ -7,7 +7,10 @@ while ! nc -z db 5432; do
 done
 echo "✅ PostgreSQL is up"
 
-# Apply Alembic migrations using the correct config path
+# ✅ Add PYTHONPATH fix
+export PYTHONPATH=/app
+
+# Run Alembic migrations
 alembic -c gaigentic_backend/alembic.ini upgrade head
 
 # Start FastAPI app
