@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List
 
 from ..database import async_session
 from ..models.agent import Agent
@@ -151,6 +152,26 @@ async def execute_workflow(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     return await run_logged_workflow(agent_id, input_context, tenant_id)
+
+
+@router.post("/{agent_id}/simulate")
+async def simulate_workflow(
+    agent_id: UUID,
+    input_context: dict,
+    session: AsyncSession = Depends(async_session),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user"})),
+) -> dict:
+    """Execute the workflow without persistence and return trace."""
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    trace: List[dict] = []
+    async for step in run_workflow_stream(agent_id, input_context, tenant_id):
+        trace.append(step)
+    return {"trace": trace}
 
 
 @router.websocket("/ws/agents/{agent_id}/run")

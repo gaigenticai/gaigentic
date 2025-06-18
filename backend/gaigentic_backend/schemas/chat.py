@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import UUID
 from typing import List, Literal, Optional
 
 from pydantic import BaseModel, Field, validator
@@ -22,6 +23,15 @@ class Node(BaseModel):
     label: str
     data: dict = Field(default_factory=dict)
     position: Position
+    condition: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Python expression controlling execution",
+    )
+    agent_id: Optional[UUID] = Field(
+        default=None,
+        description="Override agent ID for this step",
+    )
 
 
 class Edge(BaseModel):
@@ -30,6 +40,11 @@ class Edge(BaseModel):
     id: str
     source: str
     target: str
+    condition: Optional[str] = Field(
+        default=None,
+        max_length=500,
+        description="Expression controlling edge traversal",
+    )
 
 
 class WorkflowDraft(BaseModel):

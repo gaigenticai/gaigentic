@@ -8,6 +8,7 @@ import ReactFlow, {
   useNodesState,
   Connection,
   NodeMouseHandler,
+  EdgeMouseHandler,
   Edge,
   Node,
   useReactFlow,
@@ -23,12 +24,15 @@ interface DraftNode {
   label: string
   data: Record<string, unknown>
   position: { x: number; y: number }
+  condition?: string
+  agent_id?: string
 }
 
 interface DraftEdge {
   id: string
   source: string
   target: string
+  condition?: string
 }
 
 interface WorkflowDraft {
@@ -39,6 +43,7 @@ interface WorkflowDraft {
 interface RunEvent {
   node_id: string
   status: string
+  reason?: string
 }
 
 export default function Builder() {
@@ -61,9 +66,18 @@ export default function Builder() {
       id: n.id,
       type: n.type,
       position: n.position,
-      data: { label: n.label, config: n.data },
+      data: {
+        label: n.label,
+        config: n.data,
+        condition: n.condition ?? '',
+        agent_id: n.agent_id ?? '',
+      },
     })) || []
-  const initialEdges: Edge[] = initialDraft?.edges || []
+  const initialEdges: Edge[] =
+    initialDraft?.edges.map((e) => ({
+      ...e,
+      data: { condition: e.condition ?? '' },
+    })) || []
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null)
   const { project } = useReactFlow()
@@ -71,8 +85,12 @@ export default function Builder() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [configText, setConfigText] = useState('')
+  const [editCondition, setEditCondition] = useState('')
+  const [editAgentId, setEditAgentId] = useState('')
+  const [edgeCondition, setEdgeCondition] = useState('')
   const [runEvents, setRunEvents] = useState<RunEvent[]>([])
   const [running, setRunning] = useState(false)
 
@@ -112,6 +130,15 @@ export default function Builder() {
     setSelectedNodeId(node.id)
     setEditLabel(String(node.data.label ?? ''))
     setConfigText(JSON.stringify(node.data.config ?? {}, null, 2))
+    setEditCondition(String(node.data.condition ?? ''))
+    setEditAgentId(String(node.data.agent_id ?? ''))
+    setSelectedEdgeId(null)
+  }
+
+  const onEdgeClick: EdgeMouseHandler = (_e, edge) => {
+    setSelectedEdgeId(edge.id)
+    setEdgeCondition(String(edge.data?.condition ?? ''))
+    setSelectedNodeId(null)
   }
 
   const saveNodeEdits = () => {
@@ -125,9 +152,28 @@ export default function Builder() {
     }
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === selectedNodeId ? { ...n, data: { label: editLabel, config: parsed } } : n,
+        n.id === selectedNodeId
+          ? {
+              ...n,
+              data: {
+                label: editLabel,
+                config: parsed,
+                condition: editCondition,
+                agent_id: editAgentId,
+              },
+            }
+          : n,
       ),
     )
+    setSelectedNodeId(null)
+  }
+
+  const saveEdgeEdits = () => {
+    if (!selectedEdgeId) return
+    setEdges((eds) =>
+      eds.map((e) => (e.id === selectedEdgeId ? { ...e, data: { condition: edgeCondition } } : e)),
+    )
+    setSelectedEdgeId(null)
   }
 
   const buildDraft = (): WorkflowDraft => ({
@@ -137,8 +183,15 @@ export default function Builder() {
       label: n.data.label,
       data: n.data.config || {},
       position: n.position,
+      condition: n.data.condition || undefined,
+      agent_id: n.data.agent_id || undefined,
     })),
-    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    edges: edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      condition: e.data?.condition || undefined,
+    })),
   })
 
   const validateDraft = (draft: WorkflowDraft) => {
@@ -186,6 +239,18 @@ export default function Builder() {
     }
   }
 
+  const simulateWorkflow = async () => {
+    if (!agentId) return
+    setRunEvents([])
+    const res = await fetch(`/api/v1/agents/${agentId}/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({}),
+    })
+    const data = await res.json()
+    setRunEvents(data.trace || [])
+  }
+
   if (!initialDraft && nodes.length === 0) {
     return <div className="p-4">No workflow draft available.</div>
   }
@@ -204,6 +269,7 @@ export default function Builder() {
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onNodeClick={onNodeClick}
+          onEdgeClick={onEdgeClick}
           fitView
         >
           <Background />
@@ -219,6 +285,9 @@ export default function Builder() {
           <button className="px-2 py-1 bg-purple-500 text-white rounded" onClick={runLive} disabled={!agentId || running}>
             Run with Live Status
           </button>
+          <button className="px-2 py-1 bg-orange-500 text-white rounded" onClick={simulateWorkflow} disabled={!agentId || running}>
+            Simulate
+          </button>
         </div>
         {selectedNode && (
           <div className="absolute top-2 right-2 w-64 bg-white border p-2 text-sm space-y-2">
@@ -229,6 +298,22 @@ export default function Builder() {
                 className="w-full border p-1"
                 value={editLabel}
                 onChange={(e) => setEditLabel(e.target.value)}
+              />
+            </label>
+            <label className="block">
+              Condition
+              <input
+                className="w-full border p-1"
+                value={editCondition}
+                onChange={(e) => setEditCondition(e.target.value)}
+              />
+            </label>
+            <label className="block">
+              Agent ID
+              <input
+                className="w-full border p-1"
+                value={editAgentId}
+                onChange={(e) => setEditAgentId(e.target.value)}
               />
             </label>
             <label className="block">
@@ -244,10 +329,29 @@ export default function Builder() {
             </button>
           </div>
         )}
-        {running && (
+        {selectedEdgeId && (
+          <div className="absolute top-2 right-2 w-64 bg-white border p-2 text-sm space-y-2">
+            <div className="font-bold">Edit Edge {selectedEdgeId}</div>
+            <label className="block">
+              Condition
+              <input
+                className="w-full border p-1"
+                value={edgeCondition}
+                onChange={(e) => setEdgeCondition(e.target.value)}
+              />
+            </label>
+            <button className="px-2 py-1 bg-gray-200 rounded" onClick={saveEdgeEdits}>
+              Apply
+            </button>
+          </div>
+        )}
+        {(running || runEvents.length > 0) && (
           <div className="absolute top-2 left-2 bg-white border p-2 text-sm max-h-40 overflow-y-auto">
             {runEvents.map((e, i) => (
-              <div key={i}>{e.node_id}: {e.status}</div>
+              <div key={i}>
+                {e.node_id}: {e.status}
+                {e.reason ? ` (${e.reason})` : ''}
+              </div>
             ))}
           </div>
         )}
