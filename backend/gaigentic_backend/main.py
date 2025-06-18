@@ -10,7 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text, select
 
 from .database import engine, SessionLocal
-from .routes import api_router, agents, ingestion, chat, analytics, auth
+from .routes import api_router, agents, ingestion, chat, analytics, auth, templates
 from .models.user import User, RoleEnum
 from .models.tenant import Tenant
 from .config import settings
@@ -68,3 +68,4 @@ app.include_router(agents.router, prefix="/api/v1/agents")
 app.include_router(ingestion.router, prefix="/api/v1/ingest")
 app.include_router(chat.router)
 app.include_router(analytics.router, prefix="/api/v1")
+app.include_router(templates.router)
