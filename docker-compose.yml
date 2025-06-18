@@ -11,13 +11,8 @@ services:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/superagent
       - REDIS_URL=redis://redis:6379/0
       - LOG_LEVEL=debug
-    command:
-      - uvicorn
-      - app.main:app
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8080"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
+     
     depends_on:
       - db
       - redis
