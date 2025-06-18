@@ -10,7 +10,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
 
 from .database import engine
-from .routes import api_router, agents, ingestion
+from .routes import api_router, agents, ingestion, chat
 
 logger = logging.getLogger(__name__)
 
@@ -44,3 +44,4 @@ app.add_middleware(RequestIDMiddleware)
 app.include_router(api_router)
 app.include_router(agents.router, prefix="/api/v1/agents")
 app.include_router(ingestion.router, prefix="/api/v1/ingest")
+app.include_router(chat.router)

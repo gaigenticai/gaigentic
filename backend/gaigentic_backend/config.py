@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     database_url: str = Field(..., alias="DATABASE_URL")
     superagent_url: str = Field(..., alias="SUPERAGENT_URL")
     app_env: str = Field("local", alias="APP_ENV")
+    openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
+    llm_provider: str = Field("openai", alias="LLM_PROVIDER")
+    llm_model: str = Field("gpt-3.5-turbo", alias="LLM_MODEL")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

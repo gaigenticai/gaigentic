@@ -6,3 +6,5 @@ pydantic-settings
 alembic
 pandas
 openpyxl
+httpx
+openai
