@@ -1,10 +1,11 @@
 """Gaigentic FastAPI application."""
+
 from __future__ import annotations
 
 import logging
 import uuid
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, Request
 from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy import text
 

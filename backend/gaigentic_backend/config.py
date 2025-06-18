@@ -1,4 +1,5 @@
 """Application settings loader using pydantic."""
+
 from __future__ import annotations
 
 import logging
@@ -8,11 +9,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 
+SUPERAGENT_API_KEY_PREFIX = "tenant_"
+
+
 class Settings(BaseSettings):
     """Application configuration loaded from environment variables."""
 
     database_url: str = Field(..., alias="DATABASE_URL")
-    superagent_url: str | None = Field(None, alias="SUPERAGENT_URL")
+    superagent_url: str = Field(..., alias="SUPERAGENT_URL")
     app_env: str = Field("local", alias="APP_ENV")
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
