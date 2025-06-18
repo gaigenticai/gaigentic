@@ -35,6 +35,11 @@ interface WorkflowDraft {
   edges: DraftEdge[]
 }
 
+interface RunEvent {
+  node_id: string
+  status: string
+}
+
 export default function Builder() {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
@@ -67,6 +72,8 @@ export default function Builder() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [configText, setConfigText] = useState('')
+  const [runEvents, setRunEvents] = useState<RunEvent[]>([])
+  const [running, setRunning] = useState(false)
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
@@ -158,6 +165,23 @@ export default function Builder() {
     await fetch(`/api/v1/agents/${agentId}/deploy`, { method: 'POST' })
   }
 
+  const runLive = () => {
+    if (!agentId) return
+    setRunEvents([])
+    setRunning(true)
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/agents/${agentId}/run?tenant_id=00000000-0000-0000-0000-000000000001`)
+    ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data)
+      if (data.status === 'started') return
+      if (data.status === 'complete') {
+        setRunning(false)
+        ws.close()
+        return
+      }
+      setRunEvents((e) => [...e, data])
+    }
+  }
+
   if (!initialDraft && nodes.length === 0) {
     return <div className="p-4">No workflow draft available.</div>
   }
@@ -188,6 +212,9 @@ export default function Builder() {
           <button className="px-2 py-1 bg-green-500 text-white rounded" onClick={deployAgent} disabled={!agentId}>
             Deploy Agent
           </button>
+          <button className="px-2 py-1 bg-purple-500 text-white rounded" onClick={runLive} disabled={!agentId || running}>
+            Run with Live Status
+          </button>
         </div>
         {selectedNode && (
           <div className="absolute top-2 right-2 w-64 bg-white border p-2 text-sm space-y-2">
@@ -211,6 +238,13 @@ export default function Builder() {
             <button className="px-2 py-1 bg-gray-200 rounded" onClick={saveNodeEdits}>
               Apply
             </button>
+          </div>
+        )}
+        {running && (
+          <div className="absolute top-2 left-2 bg-white border p-2 text-sm max-h-40 overflow-y-auto">
+            {runEvents.map((e, i) => (
+              <div key={i}>{e.node_id}: {e.status}</div>
+            ))}
           </div>
         )}
       </div>

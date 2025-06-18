@@ -7,33 +7,13 @@ interface Message {
   timestamp: string
 }
 
-interface Node {
-  id: string
-  type: string
-  label: string
-  data: Record<string, unknown>
-  position: { x: number; y: number }
-}
 
-interface Edge {
-  id: string
-  source: string
-  target: string
-}
-
-interface WorkflowDraft {
-  nodes: Node[]
-  edges: Edge[]
-}
-
-interface ChatResponse {
-  reply: string
-  workflow_draft?: WorkflowDraft
-}
 
 export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
+  const [streamingText, setStreamingText] = useState('')
+  const [typing, setTyping] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
@@ -47,16 +27,31 @@ export default function Chat() {
     const history = [...messages, userMsg]
     setMessages(history)
     setInput('')
-    const res = await fetch('/api/v1/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: history }),
-    })
-    const data: ChatResponse = await res.json()
-    const assistantMsg: Message = { role: 'assistant', content: data.reply, timestamp: new Date().toISOString() }
-    setMessages([...history, assistantMsg])
-    if (data.workflow_draft) {
-      navigate('/Builder?draft=' + encodeURIComponent(JSON.stringify(data.workflow_draft)))
+    setStreamingText('')
+    setTyping(true)
+    let full = ''
+    const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/chat`)
+    ws.onopen = () => {
+      ws.send(JSON.stringify({ messages: history }))
+    }
+    ws.onmessage = (ev) => {
+      const data = JSON.parse(ev.data)
+      if (data.token) {
+        full += data.token + ' '
+        setStreamingText(full)
+      } else if (data.status === 'complete') {
+        const assistantMsg: Message = {
+          role: 'assistant',
+          content: full.trim(),
+          timestamp: new Date().toISOString(),
+        }
+        setMessages([...history, assistantMsg])
+        setTyping(false)
+        ws.close()
+        if (data.workflow_draft) {
+          navigate('/Builder?draft=' + encodeURIComponent(JSON.stringify(data.workflow_draft)))
+        }
+      }
     }
   }
 
@@ -70,6 +65,13 @@ export default function Chat() {
             </span>
           </div>
         ))}
+        {typing && (
+          <div className="text-left">
+            <span className="inline-block bg-gray-200 rounded px-2 py-1 max-w-md">
+              {streamingText || '...'}
+            </span>
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
       <div className="mt-2 flex">

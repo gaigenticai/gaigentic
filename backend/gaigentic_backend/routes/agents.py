@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,7 @@ from ..services.flow_validator import validate_workflow
 from ..services.workflow_translator import translate_to_superagent
 from ..services.superagent_client import get_superagent_client
 from ..services.logging_executor import run_logged_workflow
+from ..services.workflow_executor import run_workflow_stream
 from ..schemas.chat import WorkflowDraft
 import httpx
 
@@ -143,3 +145,48 @@ async def execute_workflow(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
 
     return await run_logged_workflow(agent_id, input_context)
+
+
+@router.websocket("/ws/agents/{agent_id}/run")
+async def websocket_run_agent(
+    websocket: WebSocket,
+    agent_id: UUID,
+    tenant_id: UUID,
+    session_id: str | None = None,
+) -> None:
+    """Stream workflow execution events over WebSocket."""
+
+    log_prefix = f"session {session_id} - " if session_id else ""
+    await websocket.accept()
+    ping_task = asyncio.create_task(_ping_loop(websocket))
+
+    async with async_session() as session:
+        agent = await session.get(Agent, agent_id)
+        if agent is None or agent.tenant_id != tenant_id:
+            await websocket.close(code=4004, reason="Agent not found")
+            ping_task.cancel()
+            return
+
+    await websocket.send_json({"status": "started"})
+    try:
+        async for step in run_workflow_stream(agent_id, {}):
+            logger.info("%snode %s complete", log_prefix, step["node_id"])
+            await websocket.send_json(step)
+        await websocket.send_json({"status": "complete"})
+    except WebSocketDisconnect:
+        logger.info("%sclient disconnected", log_prefix)
+    except Exception as exc:  # pragma: no cover - runtime errors
+        logger.exception("%serror running workflow: %s", log_prefix, exc)
+        await websocket.close(code=1011, reason="server error")
+    finally:
+        ping_task.cancel()
+
+
+async def _ping_loop(ws: WebSocket) -> None:
+    """Send periodic pings to keep the WebSocket alive."""
+    try:
+        while True:
+            await asyncio.sleep(15)
+            await ws.send_json({"type": "ping"})
+    except Exception:
+        pass
