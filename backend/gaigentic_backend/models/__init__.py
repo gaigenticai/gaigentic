@@ -4,5 +4,12 @@ from .agent import Agent
 
 from .transaction import Transaction
 from .chat_session import ChatSession
+from .execution_log import ExecutionLog
 
-__all__ = ["Tenant", "Agent", "Transaction", "ChatSession"]
+__all__ = [
+    "Tenant",
+    "Agent",
+    "Transaction",
+    "ChatSession",
+    "ExecutionLog",
+]
