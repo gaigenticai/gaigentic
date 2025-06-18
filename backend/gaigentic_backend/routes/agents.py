@@ -17,6 +17,7 @@ from ..services.tool_executor import execute_tool
 from ..services.flow_validator import validate_workflow
 from ..services.workflow_translator import translate_to_superagent
 from ..services.superagent_client import get_superagent_client
+from ..services.workflow_executor import run_workflow
 from ..schemas.chat import WorkflowDraft
 import httpx
 
@@ -126,3 +127,19 @@ async def deploy_agent(
             raise HTTPException(status_code=500, detail="Unknown error") from exc
 
     return {"status": "deployed", "result": data}
+
+
+@router.post("/{agent_id}/run")
+async def execute_workflow(
+    agent_id: UUID,
+    input_context: dict,
+    session: AsyncSession = Depends(async_session),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+) -> dict:
+    """Execute the stored workflow for the agent and return step results."""
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    return await run_workflow(agent_id, input_context)
