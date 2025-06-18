@@ -21,7 +21,9 @@ class Settings(BaseSettings):
     database_url: str = Field(..., alias="DATABASE_URL")
     superagent_url: str = Field(..., alias="SUPERAGENT_URL")
     app_env: str = Field(APP_ENV, alias="APP_ENV")
-    llm_providers_enabled: list[str] = Field(["openai"], alias="LLM_PROVIDERS_ENABLED")
+    llm_providers_enabled: list[str] | str = Field(
+        ["openai"], alias="LLM_PROVIDERS_ENABLED"
+    )
     openai_api_key: str | None = Field(None, alias="OPENAI_API_KEY")
     claude_api_key: str | None = Field(None, alias="CLAUDE_API_KEY")
     mistral_api_key: str | None = Field(None, alias="MISTRAL_API_KEY")
@@ -36,7 +38,7 @@ class Settings(BaseSettings):
     memory_chat_k_default: int = Field(10, alias="MEMORY_CHAT_K_DEFAULT")
     memory_semantic_k_default: int = Field(5, alias="MEMORY_SEMANTIC_K_DEFAULT")
 
-    @field_validator("llm_providers_enabled", mode="before")
+    @field_validator("llm_providers_enabled", mode="after")
     @classmethod
     def _split_providers(cls, v: str | list[str]) -> list[str]:
         if isinstance(v, str):
