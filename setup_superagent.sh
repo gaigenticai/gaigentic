@@ -11,8 +11,8 @@ if [ ! -d external/superagent ]; then
   mkdir -p external
   git clone https://github.com/superagent-ai/superagent.git external/superagent
 else
-  echo "Updating Superagent submodule"
-  git submodule update --init --recursive
+  echo "Updating Superagent repository"
+  git -C external/superagent pull --ff-only
 fi
 
 docker compose build superagent

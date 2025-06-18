@@ -15,14 +15,11 @@ if [ ! -d external/superagent ]; then
   mkdir -p external
   git clone https://github.com/superagent-ai/superagent.git external/superagent
 else
-  echo "✅ Superagent directory found"
+  echo "🔄 Updating Superagent repository..."
+  git -C external/superagent pull --ff-only
 fi
 
-# Step 3: Pull latest submodules if present
-if [ -f .gitmodules ]; then
-  echo "🔄 Updating git submodules..."
-  git submodule update --init --recursive
-fi
+# Step 3: (removed) Submodules no longer used
 
 # Step 4: Rebuild all containers
 echo "🔨 Rebuilding Docker containers..."
