@@ -6,5 +6,7 @@ if [ ! -f .env ]; then
   cp .env.development .env
 fi
 
+git submodule update --init --recursive
+
 docker compose build superagent
 docker compose up -d
