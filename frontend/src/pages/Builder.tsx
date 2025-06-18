@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, Link } from 'react-router-dom'
 import ReactFlow, {
   Background,
   Controls,
@@ -260,6 +260,25 @@ export default function Builder() {
     setRunEvents(data.trace || [])
   }
 
+  const runAllTests = async () => {
+    if (!agentId) return
+    const res = await fetch(`/api/v1/agents/${agentId}/tests`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    })
+    const list = await res.json()
+    const results: string[] = []
+    for (const t of list) {
+      // eslint-disable-next-line no-await-in-loop
+      const r = await fetch(`/api/v1/agents/${agentId}/tests/${t.id}/run`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` }
+      })
+      const data = await r.json()
+      results.push(`${t.name}: ${data.status}`)
+    }
+    alert(results.join('\n'))
+  }
+
   if (!initialDraft && nodes.length === 0) {
     return <div className="p-4">No workflow draft available.</div>
   }
@@ -309,6 +328,15 @@ export default function Builder() {
           </button>
           <button className="px-2 py-1 bg-orange-500 text-white rounded" onClick={simulateWorkflow} disabled={!agentId || running}>
             Simulate
+          </button>
+          <Link
+            to={`/Tests?agent_id=${agentId}`}
+            className="px-2 py-1 bg-gray-300 rounded"
+          >
+            Create Test
+          </Link>
+          <button className="px-2 py-1 bg-gray-500 text-white rounded" onClick={runAllTests} disabled={!agentId}>
+            Run All Tests
           </button>
         </div>
         {selectedNode && (
