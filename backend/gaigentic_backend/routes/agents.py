@@ -1,4 +1,5 @@
 """Agent management routes."""
+
 from __future__ import annotations
 
 import logging
@@ -12,6 +13,7 @@ from ..database import async_session
 from ..models.agent import Agent
 from ..schemas.agent import AgentCreate, AgentOut
 from ..services.tenant_context import get_current_tenant_id
+from ..services.tool_executor import execute_tool
 
 logger = logging.getLogger(__name__)
 
@@ -36,3 +38,14 @@ async def create_agent(
         await session.rollback()
         raise HTTPException(status_code=500, detail="Could not create agent")
     return AgentOut.model_validate(agent)
+
+
+@router.post("/{agent_id}/tools/{tool_name}/execute")
+async def execute_agent_tool(
+    agent_id: UUID,
+    tool_name: str,
+    input_data: dict,
+) -> dict:
+    """Execute a tool for the given agent."""
+
+    return await execute_tool(agent_id, tool_name, input_data)
