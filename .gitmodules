@@ -1,0 +1,3 @@
+[submodule "external/superagent"]
+	path = external/superagent
+	url = https://github.com/superagent-ai/superagent.git
