@@ -5,12 +5,10 @@ Superagent service and stores configuration in PostgreSQL.
 
 ## Local development
 
-Clone the Superagent service and start the stack. The compose file looks for a
-`Dockerfile` under `./superagent/libs/superagent`, so this repository must be
-present before running any build commands:
+Start the stack. Docker Compose now pulls the Superagent service directly from
+GitHub, so no manual clone is required:
 
 ```bash
-git clone https://github.com/superagent-ai/superagent.git superagent
 cp .env.development .env
 docker compose build superagent
 docker compose up -d
