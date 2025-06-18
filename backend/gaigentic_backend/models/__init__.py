@@ -9,6 +9,7 @@ from .user import User
 from .template import Template
 from .knowledge_chunk import KnowledgeChunk
 from .plugin import Plugin
+from .agent_test import AgentTest
 
 __all__ = [
     "Tenant",
@@ -20,4 +21,5 @@ __all__ = [
     "Template",
     "KnowledgeChunk",
     "Plugin",
+    "AgentTest",
 ]

@@ -5,6 +5,7 @@ import Monitor from './pages/Monitor'
 import Templates from './pages/Templates'
 import Knowledge from './pages/Knowledge'
 import Plugins from './pages/Plugins'
+import TestPlayground from './pages/TestPlayground'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import { getToken, clearToken } from './utils/auth'
@@ -26,6 +27,7 @@ export default function App() {
         <Link to="/Monitor" className="text-blue-600">Monitor</Link>
         <Link to="/Knowledge" className="text-blue-600">Knowledge</Link>
         <Link to="/Plugins" className="text-blue-600">Plugins</Link>
+        <Link to="/Tests" className="text-blue-600">Tests</Link>
         {token ? (
           <button onClick={logout} className="text-blue-600">Logout</button>
         ) : (
@@ -39,6 +41,7 @@ export default function App() {
         <Route path="/Monitor" element={<Monitor />} />
         <Route path="/Knowledge" element={<Knowledge />} />
         <Route path="/Plugins" element={<Plugins />} />
+        <Route path="/Tests" element={<TestPlayground />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>
