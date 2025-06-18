@@ -35,9 +35,17 @@ async def chat_endpoint(
 ) -> ChatResponse:
     """Handle chat messages and optionally store workflow drafts."""
 
-    llm = ChatSME()
+    cfg = payload.llm
+    llm = ChatSME(
+        provider=cfg.provider.value if cfg else None,
+        model=cfg.model if cfg else None,
+        temperature=cfg.temperature if cfg else 0.2,
+        max_tokens=cfg.max_tokens if cfg else None,
+    )
     try:
         response = await llm.chat(payload.messages)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:  # pragma: no cover - runtime errors
         logger.exception("LLM chat failed: %s", exc)
         raise HTTPException(status_code=500, detail="LLM error")
@@ -91,7 +99,13 @@ async def chat_websocket(
             return
         dq.append(now)
 
-        llm = ChatSME()
+        cfg = payload.llm
+        llm = ChatSME(
+            provider=cfg.provider.value if cfg else None,
+            model=cfg.model if cfg else None,
+            temperature=cfg.temperature if cfg else 0.2,
+            max_tokens=cfg.max_tokens if cfg else None,
+        )
         response = await llm.chat(payload.messages)
 
         reply = response.reply.split()
@@ -105,6 +119,8 @@ async def chat_websocket(
         await websocket.send_json(final)
     except WebSocketDisconnect:
         logger.info("%sclient disconnected", log_prefix)
+    except ValueError as exc:
+        await websocket.close(code=4000, reason=str(exc))
     except Exception as exc:  # pragma: no cover - runtime errors
         logger.exception("%swebsocket chat error: %s", log_prefix, exc)
         await websocket.close(code=1011, reason="server error")

@@ -46,6 +46,14 @@ interface RunEvent {
   reason?: string
 }
 
+const MODELS = [
+  { label: 'gpt-4', provider: 'openai', model: 'gpt-4' },
+  { label: 'gpt-3.5', provider: 'openai', model: 'gpt-3.5-turbo' },
+  { label: 'claude-2', provider: 'anthropic', model: 'claude-2' },
+  { label: 'mistral-7b', provider: 'mistral', model: 'mistral-7b' },
+  { label: 'llama3', provider: 'ollama', model: 'llama3' },
+] as const
+
 export default function Builder() {
   const location = useLocation()
   const params = new URLSearchParams(location.search)
@@ -93,6 +101,7 @@ export default function Builder() {
   const [edgeCondition, setEdgeCondition] = useState('')
   const [runEvents, setRunEvents] = useState<RunEvent[]>([])
   const [running, setRunning] = useState(false)
+  const [model, setModel] = useState<typeof MODELS[number]>(MODELS[0])
 
   const onConnect = useCallback(
     (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
@@ -275,7 +284,20 @@ export default function Builder() {
           <Background />
           <Controls />
         </ReactFlow>
-        <div className="absolute bottom-2 left-2 space-x-2">
+        <div className="absolute bottom-2 left-2 space-x-2 flex items-center">
+          <select
+            className="border px-1 py-1"
+            value={model.label}
+            onChange={(e) =>
+              setModel(MODELS.find((m) => m.label === e.target.value) || MODELS[0])
+            }
+          >
+            {MODELS.map((m) => (
+              <option key={m.label} value={m.label}>
+                {m.label}
+              </option>
+            ))}
+          </select>
           <button className="px-2 py-1 bg-blue-500 text-white rounded" onClick={saveWorkflow} disabled={!agentId}>
             Save Workflow
           </button>

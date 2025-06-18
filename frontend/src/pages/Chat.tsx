@@ -8,6 +8,14 @@ interface Message {
   timestamp: string
 }
 
+const MODELS = [
+  { label: 'gpt-4', provider: 'openai', model: 'gpt-4' },
+  { label: 'gpt-3.5', provider: 'openai', model: 'gpt-3.5-turbo' },
+  { label: 'claude-2', provider: 'anthropic', model: 'claude-2' },
+  { label: 'mistral-7b', provider: 'mistral', model: 'mistral-7b' },
+  { label: 'llama3', provider: 'ollama', model: 'llama3' },
+] as const
+
 
 
 export default function Chat() {
@@ -15,6 +23,7 @@ export default function Chat() {
   const [input, setInput] = useState('')
   const [streamingText, setStreamingText] = useState('')
   const [typing, setTyping] = useState(false)
+  const [model, setModel] = useState<typeof MODELS[number]>(MODELS[0])
   const bottomRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
@@ -33,7 +42,12 @@ export default function Chat() {
     let full = ''
     const ws = new WebSocket(`${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}/ws/chat?token=${getToken() ?? ''}`)
     ws.onopen = () => {
-      ws.send(JSON.stringify({ messages: history }))
+      ws.send(
+        JSON.stringify({
+          messages: history,
+          llm: { provider: model.provider, model: model.model, temperature: 0.2 },
+        }),
+      )
     }
     ws.onmessage = (ev) => {
       const data = JSON.parse(ev.data)
@@ -75,14 +89,27 @@ export default function Chat() {
         )}
         <div ref={bottomRef} />
       </div>
-      <div className="mt-2 flex">
+      <div className="mt-2 flex space-x-2 items-center">
+        <select
+          className="border px-2 py-1"
+          value={model.label}
+          onChange={(e) =>
+            setModel(MODELS.find((m) => m.label === e.target.value) || MODELS[0])
+          }
+        >
+          {MODELS.map((m) => (
+            <option key={m.label} value={m.label}>
+              {m.label}
+            </option>
+          ))}
+        </select>
         <input
           className="flex-1 border rounded px-2 py-1"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
         />
-        <button className="ml-2 px-3 py-1 bg-blue-600 text-white rounded" onClick={sendMessage}>
+        <button className="px-3 py-1 bg-blue-600 text-white rounded" onClick={sendMessage}>
           Send
         </button>
       </div>
