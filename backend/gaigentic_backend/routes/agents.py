@@ -14,6 +14,11 @@ from ..models.agent import Agent
 from ..schemas.agent import AgentCreate, AgentOut
 from ..services.tenant_context import get_current_tenant_id
 from ..services.tool_executor import execute_tool
+from ..services.flow_validator import validate_workflow
+from ..services.workflow_translator import translate_to_superagent
+from ..services.superagent_client import get_superagent_client
+from ..schemas.chat import WorkflowDraft
+import httpx
 
 logger = logging.getLogger(__name__)
 
@@ -49,3 +54,75 @@ async def execute_agent_tool(
     """Execute a tool for the given agent."""
 
     return await execute_tool(agent_id, tool_name, input_data)
+
+
+@router.post("/{agent_id}/workflow")
+async def save_workflow(
+    agent_id: UUID,
+    draft: WorkflowDraft,
+    session: AsyncSession = Depends(async_session),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+) -> dict:
+    """Validate and store a workflow for the agent."""
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    try:
+        validate_workflow(draft)
+    except ValueError as exc:
+        logger.error("Invalid workflow: %s", exc)
+        raise HTTPException(status_code=400, detail="Invalid workflow") from exc
+
+    cfg = agent.config or {}
+    cfg["workflow"] = draft.model_dump()
+    agent.config = cfg
+    try:
+        await session.commit()
+    except SQLAlchemyError as exc:  # pragma: no cover - runtime path
+        logger.exception("Failed to store workflow: %s", exc)
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Could not store workflow") from exc
+
+    logger.info("Workflow saved for agent %s", agent_id)
+    return {"status": "saved"}
+
+
+@router.post("/{agent_id}/deploy")
+async def deploy_agent(
+    agent_id: UUID,
+    session: AsyncSession = Depends(async_session),
+    tenant_id: UUID = Depends(get_current_tenant_id),
+) -> dict:
+    """Deploy the agent using its saved workflow."""
+
+    agent = await session.get(Agent, agent_id)
+    if agent is None or agent.tenant_id != tenant_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Agent not found")
+
+    workflow_data = (agent.config or {}).get("workflow")
+    if not workflow_data:
+        raise HTTPException(status_code=400, detail="No workflow defined")
+
+    try:
+        draft = WorkflowDraft.model_validate(workflow_data)
+        superagent_payload = translate_to_superagent(draft)
+    except ValueError as exc:
+        logger.error("Workflow translation failed: %s", exc)
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    logger.info("Deploying agent %s with payload %s", agent_id, superagent_payload)
+    async with get_superagent_client(str(tenant_id)) as client:
+        try:
+            response = await client.post(f"/agents/{agent_id}/deploy", json=superagent_payload)
+            response.raise_for_status()
+            data = response.json()
+        except httpx.HTTPError as exc:
+            logger.exception("Superagent deployment failed: %s", exc)
+            raise HTTPException(status_code=502, detail="Deployment failed") from exc
+        except Exception as exc:  # pragma: no cover
+            logger.exception("Unexpected deployment error: %s", exc)
+            raise HTTPException(status_code=500, detail="Unknown error") from exc
+
+    return {"status": "deployed", "result": data}
