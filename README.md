@@ -14,6 +14,13 @@ docker compose build superagent
 docker compose up -d
 ```
 
+You can also run the convenience script which performs the above steps
+automatically:
+
+```bash
+./scripts/setup_superagent.sh
+```
+
 The API will be available at `http://localhost:8001` and the health check at
 `/healthz`.
 
