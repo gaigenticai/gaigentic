@@ -10,9 +10,10 @@ from fastapi import HTTPException, status
 
 from ..database import SessionLocal
 from ..models.agent import Agent
-from ..schemas.chat import WorkflowDraft
+from ..schemas.chat import WorkflowDraft, Edge, Node
 from .memory_adapter import fetch_context_for_agent
 from .tool_executor import execute_tool
+from .condition_evaluator import evaluate_condition
 
 logger = logging.getLogger(__name__)
 
@@ -74,26 +75,54 @@ async def run_workflow_stream(
     if use_memory:
         memory_context = await fetch_context_for_agent(agent_id)
 
-    node_map = {n.id: n for n in draft.nodes}
+    node_map: Dict[str, Node] = {n.id: n for n in draft.nodes}
+    edges_by_source: Dict[str, List[Edge]] = {}
+    edges_by_target: Dict[str, List[Edge]] = {}
+    for e in draft.edges:
+        edges_by_source.setdefault(e.source, []).append(e)
+        edges_by_target.setdefault(e.target, []).append(e)
+
     results: Dict[str, Any] = {}
+    triggered: Dict[str, List[str]] = {}
 
     for node_id in order:
         node = node_map[node_id]
-        upstream = {
-            edge.source: results[edge.source]
-            for edge in draft.edges
-            if edge.target == node_id and edge.source in results
-        }
+        incoming = edges_by_target.get(node_id, [])
+        upstream_ids = triggered.get(node_id, [])
+        upstream = {sid: results[sid] for sid in upstream_ids}
+
+        if incoming and not upstream:
+            yield {"node_id": node_id, "status": "skipped", "reason": "no_upstream"}
+            continue
+
+        cond_ctx = {"context": input_context, "memory": memory_context, "upstream": upstream}
+        try:
+            if not evaluate_condition(node.condition, cond_ctx):
+                yield {"node_id": node_id, "status": "skipped", "reason": "condition"}
+                continue
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid node condition")
+
         step_input = {
             "context": input_context,
             "memory": memory_context,
             "upstream": upstream,
             "config": node.data or {},
         }
-        logger.info("Executing node %s (%s)", node_id, node.type)
-        output = await execute_tool(agent_id, node.type, step_input, tenant_id)
+        agent_override = node.agent_id or agent_id
+        logger.info("Executing node %s (%s) using agent %s", node_id, node.type, agent_override)
+        output = await execute_tool(agent_override, node.type, step_input, tenant_id)
         logger.info("Output for node %s: %s", node_id, output)
         results[node_id] = output
+        for edge in edges_by_source.get(node_id, []):
+            try:
+                if not evaluate_condition(edge.condition, {"output": output}):
+                    continue
+            except ValueError:
+                logger.error("Invalid edge condition on %s", edge.id)
+                continue
+            triggered.setdefault(edge.target, []).append(node_id)
+
         yield {
             "node_id": node_id,
             "tool": node.type,
