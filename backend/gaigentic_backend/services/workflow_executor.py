@@ -12,7 +12,6 @@ from ..database import SessionLocal
 from ..models.agent import Agent
 from ..schemas.chat import WorkflowDraft
 from .memory_adapter import fetch_context_for_agent
-from .tenant_context import get_current_tenant_id
 from .tool_executor import execute_tool
 
 logger = logging.getLogger(__name__)
@@ -50,11 +49,10 @@ def _topological_order(draft: WorkflowDraft) -> List[str]:
 
 
 async def run_workflow_stream(
-    agent_id: UUID, input_context: Dict[str, Any]
+    agent_id: UUID, input_context: Dict[str, Any], tenant_id: UUID
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """Yield workflow execution results step by step."""
 
-    tenant_id = await get_current_tenant_id()
     agent = await _load_agent(agent_id, tenant_id)
 
     workflow_data = (agent.config or {}).get("workflow")
@@ -93,7 +91,7 @@ async def run_workflow_stream(
             "config": node.data or {},
         }
         logger.info("Executing node %s (%s)", node_id, node.type)
-        output = await execute_tool(agent_id, node.type, step_input)
+        output = await execute_tool(agent_id, node.type, step_input, tenant_id)
         logger.info("Output for node %s: %s", node_id, output)
         results[node_id] = output
         yield {
@@ -104,11 +102,11 @@ async def run_workflow_stream(
         }
 
 
-async def run_workflow(agent_id: UUID, input_context: Dict[str, Any]) -> Dict[str, Any]:
+async def run_workflow(agent_id: UUID, input_context: Dict[str, Any], tenant_id: UUID) -> Dict[str, Any]:
     """Execute the stored workflow for an agent and return consolidated result."""
 
     results: Dict[str, Any] = {}
-    async for step in run_workflow_stream(agent_id, input_context):
+    async for step in run_workflow_stream(agent_id, input_context, tenant_id):
         results[step["node_id"]] = step["output"]
 
     return {"steps": results, "status": "complete"}

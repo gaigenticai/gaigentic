@@ -12,16 +12,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..database import SessionLocal
 from ..models.execution_log import ExecutionLog
-from .tenant_context import get_current_tenant_id
 from .workflow_executor import _load_agent, run_workflow
 
 logger = logging.getLogger(__name__)
 
 
-async def run_logged_workflow(agent_id: UUID, input_context: Dict[str, Any]) -> Dict[str, Any]:
+async def run_logged_workflow(agent_id: UUID, input_context: Dict[str, Any], tenant_id: UUID) -> Dict[str, Any]:
     """Execute a workflow and persist an execution log."""
-
-    tenant_id = await get_current_tenant_id()
     started = datetime.now(tz=timezone.utc)
     status = "success"
     output: Dict[str, Any] | None = None
@@ -30,7 +27,7 @@ async def run_logged_workflow(agent_id: UUID, input_context: Dict[str, Any]) -> 
     try:
         agent = await _load_agent(agent_id, tenant_id)
         workflow_snapshot = (agent.config or {}).get("workflow") or {}
-        output = await run_workflow(agent_id, input_context)
+        output = await run_workflow(agent_id, input_context, tenant_id)
         status = "success"
         return output
     except HTTPException as exc:

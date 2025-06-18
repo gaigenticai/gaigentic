@@ -12,7 +12,7 @@ from ..database import async_session
 from ..models.agent import Agent
 from ..models.transaction import Transaction
 from ..models.execution_log import ExecutionLog
-from ..services.tenant_context import get_current_tenant_id
+from ..dependencies.auth import get_current_tenant_id, require_role
 
 router = APIRouter()
 
@@ -22,6 +22,7 @@ async def get_agent_runs(
     agent_id: UUID,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user", "readonly"})),
 ) -> List[dict]:
     """Return recent execution logs for an agent."""
 
@@ -43,6 +44,7 @@ async def tenant_stats(
     tenant_id: UUID,
     session: AsyncSession = Depends(async_session),
     current: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user", "readonly"})),
 ) -> dict:
     """Return aggregate statistics for a tenant."""
 

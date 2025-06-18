@@ -17,7 +17,7 @@ from ..models.chat_session import ChatSession
 from ..schemas.chat import ChatRequest, ChatResponse
 from ..services.flow_validator import validate_workflow
 from ..services.llm_chat import ChatSME
-from ..services.tenant_context import get_current_tenant_id
+from ..dependencies.auth import get_current_tenant_id, require_role
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,7 @@ async def chat_endpoint(
     payload: ChatRequest,
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
+    _user=Depends(require_role({"admin", "user"})),
 ) -> ChatResponse:
     """Handle chat messages and optionally store workflow drafts."""
 

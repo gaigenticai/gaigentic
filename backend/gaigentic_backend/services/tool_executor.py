@@ -11,15 +11,12 @@ from fastapi import HTTPException, status
 from ..database import SessionLocal
 from ..models.agent import Agent
 from .superagent_client import get_superagent_client
-from .tenant_context import get_current_tenant_id
 
 logger = logging.getLogger(__name__)
 
 
-async def execute_tool(agent_id: UUID, tool_name: str, input_data: dict) -> dict:
+async def execute_tool(agent_id: UUID, tool_name: str, input_data: dict, tenant_id: UUID) -> dict:
     """Execute a registered tool through Superagent."""
-
-    tenant_id = await get_current_tenant_id()
     async with SessionLocal() as session:  # type: AsyncSession
         agent = await session.get(Agent, agent_id)
         if agent is None or agent.tenant_id != tenant_id:
