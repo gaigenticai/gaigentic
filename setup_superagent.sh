@@ -6,12 +6,7 @@ if [ ! -f .env ]; then
   cp .env.development .env
 fi
 
-# Clone Superagent locally if not present
-if [ ! -d external/superagent ]; then
-  echo "Cloning Superagent..."
-  mkdir -p external
-  git clone https://github.com/superagent-ai/superagent.git external/superagent
-fi
+git submodule update --init --recursive
 
 docker compose build superagent
 docker compose up -d
