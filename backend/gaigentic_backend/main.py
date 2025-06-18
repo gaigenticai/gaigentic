@@ -4,19 +4,29 @@ from __future__ import annotations
 
 import logging
 import uuid
+import os
 
+import sys
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from sqlalchemy import text, select
 
 from .database import engine, SessionLocal
 from .routes import api_router, agents, ingestion, chat, analytics, auth, templates, knowledge
+from .routes.metrics import REQUEST_LATENCY
+from .middleware import RateLimitMiddleware, MetricsMiddleware
 from .models.user import User, RoleEnum
 from .models.tenant import Tenant
 from .config import settings
 from .services.security import hash_password
 
 logger = logging.getLogger(__name__)
+
+if settings.log_file and settings.app_env == "production":
+    os.makedirs(os.path.dirname(settings.log_file), exist_ok=True)
+    logging.basicConfig(level=logging.INFO, handlers=[logging.FileHandler(settings.log_file), logging.StreamHandler(sys.stdout)])
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -62,6 +72,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Gaigentic Backend", lifespan=lifespan)
 app.add_middleware(RequestIDMiddleware)
+app.add_middleware(MetricsMiddleware, histogram=REQUEST_LATENCY)
+app.add_middleware(RateLimitMiddleware, max_requests=settings.rate_limit_per_minute)
+if settings.app_env == "production":
+    app.add_middleware(HTTPSRedirectMiddleware)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",") if o],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 app.include_router(api_router)
 app.include_router(auth.router, prefix="/api/v1/auth")
 app.include_router(agents.router, prefix="/api/v1/agents")
