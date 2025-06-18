@@ -6,7 +6,7 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
-  gaigentic-backend:
+  backend:
     build: ./backend
     env_file:
       - .env.development
@@ -16,6 +16,20 @@ services:
       - superagent
       - db
       - redis
+  frontend:
+    build:
+      context: ./frontend
+    container_name: gaigentic-frontend
+    command: ["npm", "run", "dev"]
+    environment:
+      NODE_ENV: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
   db:
     image: postgres:15
     environment:
