@@ -1,9 +1,22 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import ReactFlow, { Background } from 'reactflow'
+import ReactFlow, {
+  Background,
+  Controls,
+  addEdge,
+  useEdgesState,
+  useNodesState,
+  Connection,
+  NodeMouseHandler,
+  Edge,
+  Node,
+  useReactFlow,
+  ReactFlowProvider,
+} from 'reactflow'
 import 'reactflow/dist/style.css'
+import ToolPalette from '../components/ToolPalette'
 
-interface Node {
+interface DraftNode {
   id: string
   type: string
   label: string
@@ -11,40 +24,197 @@ interface Node {
   position: { x: number; y: number }
 }
 
-interface Edge {
+interface DraftEdge {
   id: string
   source: string
   target: string
 }
 
 interface WorkflowDraft {
-  nodes: Node[]
-  edges: Edge[]
+  nodes: DraftNode[]
+  edges: DraftEdge[]
 }
 
 export default function Builder() {
   const location = useLocation()
-  const draft: WorkflowDraft | null = useMemo(() => {
-    const params = new URLSearchParams(location.search)
-    const json = params.get('draft')
-    if (!json) return null
+  const params = new URLSearchParams(location.search)
+  const draftParam = params.get('draft')
+  const agentId = params.get('agent_id') || ''
+
+  const initialDraft: WorkflowDraft | null = useMemo(() => {
+    if (!draftParam) return null
     try {
-      return JSON.parse(json) as WorkflowDraft
+      return JSON.parse(draftParam) as WorkflowDraft
     } catch {
       return null
     }
-  }, [location.search])
+  }, [draftParam])
 
-  if (!draft) return <div className="p-4">No workflow draft available.</div>
+  const initialNodes: Node[] =
+    initialDraft?.nodes.map((n) => ({
+      id: n.id,
+      type: n.type,
+      position: n.position,
+      data: { label: n.label, config: n.data },
+    })) || []
+  const initialEdges: Edge[] = initialDraft?.edges || []
 
-  const nodes = draft.nodes.map((n) => ({ id: n.id, position: n.position, data: { label: n.label }, type: n.type }))
-  const edges = draft.edges
+  const reactFlowWrapper = useRef<HTMLDivElement>(null)
+  const { project } = useReactFlow()
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [editLabel, setEditLabel] = useState('')
+  const [configText, setConfigText] = useState('')
+
+  const onConnect = useCallback(
+    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
+    [],
+  )
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = 'move'
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+      const type = event.dataTransfer.getData('application/tool')
+      if (!type || !reactFlowWrapper.current) return
+      const bounds = reactFlowWrapper.current.getBoundingClientRect()
+      const position = project({
+        x: event.clientX - bounds.left,
+        y: event.clientY - bounds.top,
+      })
+      const id = `${type}_${Date.now()}`
+      const newNode: Node = {
+        id,
+        type,
+        position,
+        data: { label: type, config: {} },
+      }
+      setNodes((nds) => nds.concat(newNode))
+    },
+    [project, setNodes],
+  )
+
+  const onNodeClick: NodeMouseHandler = (_e, node) => {
+    setSelectedNodeId(node.id)
+    setEditLabel(String(node.data.label ?? ''))
+    setConfigText(JSON.stringify(node.data.config ?? {}, null, 2))
+  }
+
+  const saveNodeEdits = () => {
+    if (!selectedNodeId) return
+    let parsed: Record<string, unknown> = {}
+    try {
+      parsed = configText ? JSON.parse(configText) : {}
+    } catch {
+      alert('Config must be valid JSON')
+      return
+    }
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === selectedNodeId ? { ...n, data: { label: editLabel, config: parsed } } : n,
+      ),
+    )
+  }
+
+  const buildDraft = (): WorkflowDraft => ({
+    nodes: nodes.map((n) => ({
+      id: n.id,
+      type: n.type || 'default',
+      label: n.data.label,
+      data: n.data.config || {},
+      position: n.position,
+    })),
+    edges: edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+  })
+
+  const validateDraft = (draft: WorkflowDraft) => {
+    const ids = new Set(draft.nodes.map((n) => n.id))
+    if (ids.size !== draft.nodes.length) return false
+    return draft.edges.every((e) => ids.has(e.source) && ids.has(e.target))
+  }
+
+  const saveWorkflow = async () => {
+    if (!agentId) return
+    const draft = buildDraft()
+    if (!validateDraft(draft)) {
+      alert('Invalid workflow')
+      return
+    }
+    await fetch(`/api/v1/agents/${agentId}/workflow`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    })
+  }
+
+  const deployAgent = async () => {
+    if (!agentId) return
+    await fetch(`/api/v1/agents/${agentId}/deploy`, { method: 'POST' })
+  }
+
+  if (!initialDraft && nodes.length === 0) {
+    return <div className="p-4">No workflow draft available.</div>
+  }
+
+  const selectedNode = nodes.find((n) => n.id === selectedNodeId)
 
   return (
-    <div style={{ width: '100%', height: '100vh' }}>
-      <ReactFlow nodes={nodes} edges={edges} fitView nodesDraggable={false} nodesConnectable={false} elementsSelectable={false}>
-        <Background />
-      </ReactFlow>
+    <ReactFlowProvider>
+      <div className="flex h-screen" ref={reactFlowWrapper} onDrop={onDrop} onDragOver={onDragOver}>
+        <ToolPalette />
+        <div className="flex-1 relative">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          onNodeClick={onNodeClick}
+          fitView
+        >
+          <Background />
+          <Controls />
+        </ReactFlow>
+        <div className="absolute bottom-2 left-2 space-x-2">
+          <button className="px-2 py-1 bg-blue-500 text-white rounded" onClick={saveWorkflow} disabled={!agentId}>
+            Save Workflow
+          </button>
+          <button className="px-2 py-1 bg-green-500 text-white rounded" onClick={deployAgent} disabled={!agentId}>
+            Deploy Agent
+          </button>
+        </div>
+        {selectedNode && (
+          <div className="absolute top-2 right-2 w-64 bg-white border p-2 text-sm space-y-2">
+            <div className="font-bold">Edit Node {selectedNode.id}</div>
+            <label className="block">
+              Label
+              <input
+                className="w-full border p-1"
+                value={editLabel}
+                onChange={(e) => setEditLabel(e.target.value)}
+              />
+            </label>
+            <label className="block">
+              Config
+              <textarea
+                className="w-full border p-1 h-24"
+                value={configText}
+                onChange={(e) => setConfigText(e.target.value)}
+              />
+            </label>
+            <button className="px-2 py-1 bg-gray-200 rounded" onClick={saveNodeEdits}>
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
     </div>
+    </ReactFlowProvider>
   )
 }
