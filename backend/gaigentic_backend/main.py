@@ -14,7 +14,7 @@ from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
 from sqlalchemy import text, select
 
 from .database import engine, SessionLocal
-from .routes import api_router, agents, ingestion, chat, analytics, auth, templates, knowledge
+from .routes import api_router, agents, ingestion, chat, analytics, auth, templates, knowledge, plugins
 from .routes.metrics import REQUEST_LATENCY
 from .middleware import RateLimitMiddleware, MetricsMiddleware
 from .models.user import User, RoleEnum
@@ -90,3 +90,4 @@ app.include_router(chat.router)
 app.include_router(analytics.router, prefix="/api/v1")
 app.include_router(templates.router)
 app.include_router(knowledge.router, prefix="/api/v1")
+app.include_router(plugins.router, prefix="/api/v1/plugins")
