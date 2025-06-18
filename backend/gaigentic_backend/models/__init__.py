@@ -2,4 +2,5 @@
 from .tenant import Tenant
 from .agent import Agent
 
-__all__ = ["Tenant", "Agent"]
+from .transaction import Transaction
+__all__ = ["Tenant", "Agent", "Transaction"]
