@@ -10,8 +10,9 @@ RUN pip install --user --no-cache-dir -r requirements.txt
 # ---- Final image ----
 FROM python:3.11-slim
 
+# ✅ Fix netcat error by using correct Debian package
 RUN apt-get update && \
-    apt-get install -y netcat && \
+    apt-get install -y netcat-openbsd && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
