@@ -10,3 +10,7 @@ httpx
 openai
 passlib[bcrypt]
 PyJWT
+tiktoken
+PyMuPDF
+python-docx
+pgvector

@@ -3,6 +3,7 @@ import Chat from './pages/Chat'
 import Builder from './pages/Builder'
 import Monitor from './pages/Monitor'
 import Templates from './pages/Templates'
+import Knowledge from './pages/Knowledge'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import { getToken, clearToken } from './utils/auth'
@@ -22,6 +23,7 @@ export default function App() {
         <Link to="/Builder" className="text-blue-600">Builder</Link>
         <Link to="/Templates" className="text-blue-600">Templates</Link>
         <Link to="/Monitor" className="text-blue-600">Monitor</Link>
+        <Link to="/Knowledge" className="text-blue-600">Knowledge</Link>
         {token ? (
           <button onClick={logout} className="text-blue-600">Logout</button>
         ) : (
@@ -33,6 +35,7 @@ export default function App() {
         <Route path="/Builder" element={<Builder />} />
         <Route path="/Templates" element={<Templates />} />
         <Route path="/Monitor" element={<Monitor />} />
+        <Route path="/Knowledge" element={<Knowledge />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
       </Routes>
