@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy import func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,7 +29,7 @@ async def create_agent_test(
     tenant_id: UUID = Depends(get_current_tenant_id),
 ) -> AgentTestOut:
     agent = await session.get(Agent, agent_id)
-    if agent is None or agent.tenant_id != tenant_id:
+    if agent is None or agent.tenant_id.__eq__(tenant_id).is_(False):
         raise HTTPException(status_code=404, detail="Agent not found")
 
     count = await session.scalar(
@@ -66,9 +66,9 @@ async def run_agent_test(
     _user=Depends(require_role({"admin", "user"})),
 ) -> dict:
     test = await session.get(AgentTest, test_id)
-    if test is None or test.agent_id != agent_id or test.tenant_id != tenant_id:
+    if test is None or test.agent_id.__eq__(agent_id).is_(False) or test.tenant_id.__eq__(tenant_id).is_(False):
         raise HTTPException(status_code=404, detail="Test not found")
-    return await run_test(agent_id, test.input_context, test.expected_output, tenant_id)
+    return await run_test(agent_id, dict(test.input_context), dict(test.expected_output), tenant_id)
 
 
 @router.get("/{agent_id}/tests", response_model=list[AgentTestOut])
@@ -92,12 +92,13 @@ async def delete_agent_test(
     session: AsyncSession = Depends(async_session),
     tenant_id: UUID = Depends(get_current_tenant_id),
     user=Depends(require_role({"admin", "user"})),
-) -> None:
+) -> Response:
     test = await session.get(AgentTest, test_id)
-    if test is None or test.agent_id != agent_id or test.tenant_id != tenant_id:
+    if test is None or test.agent_id.__ne__(agent_id).is_(True) or test.tenant_id.__ne__(tenant_id).is_(True):
         raise HTTPException(status_code=404, detail="Test not found")
-    if test.created_by != user.id:
+    if test.created_by.__ne__(user.id).is_(True):
         raise HTTPException(status_code=403, detail="Forbidden")
     await session.delete(test)
     await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
