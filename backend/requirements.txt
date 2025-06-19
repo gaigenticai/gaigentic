@@ -2,6 +2,7 @@ fastapi
 uvicorn[standard]
 sqlalchemy>=2.0
 psycopg2-binary
+pydantic[email]
 pydantic-settings
 alembic
 pandas
@@ -17,3 +18,4 @@ pgvector
 prometheus-client
 aiosqlite
 asyncpg
+email-validator
