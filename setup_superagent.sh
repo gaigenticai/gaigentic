@@ -8,8 +8,8 @@ fi
 
 if [ ! -d external/superagent ]; then
   echo "Cloning Superagent repository"
-  mkdir -p external/superagent/libs
-  git clone https://github.com/superagent-ai/superagent.git external/superagent/libs/superagent
+  mkdir -p external
+  git clone https://github.com/superagent-ai/superagent.git external/superagent
 else
   echo "Updating Superagent repository"
   git -C external/superagent pull --ff-only
