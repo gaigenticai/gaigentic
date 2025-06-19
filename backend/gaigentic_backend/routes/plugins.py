@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy import select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -108,14 +108,19 @@ async def toggle_plugin(
     return {"status": status_str}
 
 
-@router.delete("/{plugin_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/{plugin_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_class=Response  # ✅ this tells FastAPI not to expect a body
+)
 async def purge_plugin(
     plugin_id: UUID,
     session: AsyncSession = Depends(async_session),
     _user=Depends(require_role({"admin"})),
-) -> None:
+) -> Response:
     plugin = await session.get(Plugin, plugin_id)
     if plugin is None:
         raise HTTPException(status_code=404, detail="Plugin not found")
     await session.delete(plugin)
     await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
