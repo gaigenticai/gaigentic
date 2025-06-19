@@ -13,8 +13,14 @@ from ..models.agent import Agent
 from ..models.plugin import Plugin
 from .superagent_client import get_superagent_client
 from .plugin_executor import run_plugin
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import status
+from fastapi import HTTPException
+from ..database import SessionLocal
+
 
 logger = logging.getLogger(__name__)
+
 
 
 async def execute_tool(agent_id: UUID, tool_name: str, input_data: dict, tenant_id: UUID) -> dict:
