@@ -16,4 +16,4 @@ python-docx
 pgvector
 prometheus-client
 aiosqlite
-
+asyncpg
