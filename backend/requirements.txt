@@ -20,3 +20,4 @@ aiosqlite
 asyncpg
 email-validator
 python-multipart
+deepdiff
