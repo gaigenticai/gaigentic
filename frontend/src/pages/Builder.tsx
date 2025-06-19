@@ -6,7 +6,6 @@ import ReactFlow, {
   addEdge,
   useEdgesState,
   useNodesState,
-  Connection,
   NodeMouseHandler,
   EdgeMouseHandler,
   Edge,
@@ -104,8 +103,8 @@ export default function Builder() {
   const [model, setModel] = useState<typeof MODELS[number]>(MODELS[0])
 
   const onConnect = useCallback(
-    (connection: Connection) => setEdges((eds) => addEdge(connection, eds)),
-    [],
+  (connection: any) => setEdges((eds) => addEdge(connection, eds)),
+  [],
   )
 
   const onDragOver = useCallback((event: React.DragEvent) => {
