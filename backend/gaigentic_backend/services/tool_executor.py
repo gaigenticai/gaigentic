@@ -9,7 +9,8 @@ import httpx
 from fastapi import HTTPException, status
 
 from ..database import SessionLocal
-from ..models.agent import Agent, Plugin
+from ..models.agent import Agent
+from ..models.plugin import Plugin
 from .superagent_client import get_superagent_client
 from .plugin_executor import run_plugin
 
