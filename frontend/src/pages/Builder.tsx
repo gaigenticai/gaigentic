@@ -6,12 +6,15 @@ import ReactFlow, {
   addEdge,
   useEdgesState,
   useNodesState,
-  NodeMouseHandler,
-  EdgeMouseHandler,
-  Edge,
-  Node,
   useReactFlow,
   ReactFlowProvider,
+} from 'reactflow'
+
+import type {
+  Edge,
+  Node,
+  NodeMouseHandler,
+  EdgeMouseHandler,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import ToolPalette from '../components/ToolPalette'
